@@ -6,45 +6,46 @@ h1{font-size:18px;margin:12px 0 4px}#st{font-size:16px;margin:4px 0 8px;min-heig
 .s{display:flex;aspect-ratio:1;min-height:0;align-items:center;justify-content:center;font-size:min(10vw,58px);line-height:1;position:relative}
 .l{background:#eed8b5}.d{background:#b58863}.sel{background:#7fb3ff!important}.last{box-shadow:inset 0 0 0 100px rgba(255,235,59,.35)}
 .dot::after{content:"";position:absolute;width:28%;height:28%;border-radius:50%;background:rgba(0,0,0,.28)}
-.chk{background:#e05252!important}.w{color:#fff;text-shadow:0 0 2px #000,0 0 2px #000,0 0 1px #000}.k{color:#111}
+.chk{background:#e05252!important}.s{font-family:'Apple Symbols','Segoe UI Symbol','DejaVu Sans',serif}.w{color:#fff;-webkit-text-stroke:1.5px #000;text-shadow:0 1px 2px rgba(0,0,0,.6)}.k{color:#000;-webkit-text-stroke:1px #000}
 #mv{width:min(96vw,520px);font-size:16px;color:#ddd;margin:8px 0;word-wrap:break-word}
 #chat{width:min(96vw,520px);background:#2a3038;border-radius:8px;padding:8px;box-sizing:border-box}
 #log{max-height:150px;overflow-y:auto;font-size:14px}#log div{margin:3px 0}#log b{color:#7fb3ff}
 .row{display:flex;gap:8px;margin:10px}button{font-size:15px;padding:9px 14px;border-radius:6px;border:0;background:#555;color:#fff}
 </style></head><body>
-<h1>You (White) vs Chess bot (Black)</h1><div id=st>Loading…</div><div id=b></div><div id=mv></div>
+<h1 id=ttl>You (White) vs Chess bot (Black)</h1><div id=st>Loading…</div><div id=b></div><div id=mv></div>
 <div id=chat><div id=log></div></div>
-<div class=row><button id=undo>Take back</button><button id=new>New game</button></div>
+<div class=row><button id=undo>Take back</button><button id=new>New game as White</button><button id=newb>New game as Black</button></div>
 <script src="chess.js"></script>
 <script>
-const G={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'},files='abcdefgh';
-let game=new Chess(),sel=null,thinking=false,last=null,chat=[];
+const G={k:'♚\uFE0E',q:'♛\uFE0E',r:'♜\uFE0E',b:'♝\uFE0E',n:'♞\uFE0E',p:'♟\uFE0E'},files='abcdefgh';
+let game=new Chess(),sel=null,thinking=false,last=null,chat=[],me='w';
 const saved=JSON.parse(localStorage.getItem('cvb')||'null');
-if(saved){game.load_pgn(saved.pgn);last=saved.last;chat=saved.chat||[]}
+if(saved){game.load_pgn(saved.pgn);last=saved.last;chat=saved.chat||[];me=saved.me||'w'}
 function say(t){chat.push(t);save()}
-function save(){localStorage.setItem('cvb',JSON.stringify({pgn:game.pgn(),last,chat:chat.slice(-30)}))}
+function save(){localStorage.setItem('cvb',JSON.stringify({pgn:game.pgn(),last,me,chat:chat.slice(-30)}))}
 if(!chat.length)say("Hi! I'm Chess, your dad's bot. You're White, so you go first. Tap a piece, then tap where it goes. Good luck!");
 const sf=new Worker('stockfish.js');let ready=false;
 sf.onmessage=e=>{const l=String(e.data);
- if(l=='readyok'){ready=true;draw();if(game.turn()=='b'&&!game.game_over())think()}
+ if(l=='readyok'){ready=true;draw();if(game.turn()!=me&&!game.game_over())think()}
  if(l.startsWith('bestmove')){const u=l.split(' ')[1];const m=game.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||'q'});thinking=false;if(m){last=[m.from,m.to];react(m)}save();draw()}};
 sf.postMessage('uci');sf.postMessage('setoption name Skill Level value 20');sf.postMessage('isready');
 function think(){thinking=true;draw();sf.postMessage('position fen '+game.fen());sf.postMessage('go movetime 2000')}
 function react(m){if(game.in_checkmate())say("Checkmate! Good game. Tap New game for a rematch.");else if(game.in_draw())say("It's a draw. Nice fight!");else if(game.in_check())say("Check!");else if(m.captured&&Math.random()<.5)say(["Got your "+({p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen'})[m.captured]+"!","Thanks for that one."][Math.floor(Math.random()*2)])}
-function draw(){const B=document.getElementById('b');B.innerHTML='';
+function draw(){document.getElementById('ttl').textContent=me=='w'?'You (White) vs Chess bot (Black)':'You (Black) vs Chess bot (White)';const B=document.getElementById('b');B.innerHTML='';
  const targets=sel?game.moves({square:sel,verbose:true}).map(m=>m.to):[];
- for(let r=8;r>=1;r--)for(let f=0;f<8;f++){const sq=files[f]+r,d=document.createElement('div'),pc=game.get(sq);
-  d.className='s '+((f+r)%2?'l':'d');if(pc){d.textContent=G[pc.type];d.classList.add(pc.color=='w'?'w':'k');if(pc.type=='k'&&pc.color==game.turn()&&game.in_check())d.classList.add('chk')}
+ for(let i=0;i<64;i++){const rr=Math.floor(i/8),ff=i%8,r=me=='w'?8-rr:rr+1,f=me=='w'?ff:7-ff,sq=files[f]+r,d=document.createElement('div'),pc=game.get(sq);
+  d.className='s '+((f+r)%2?'d':'l');if(pc){d.textContent=G[pc.type];d.classList.add(pc.color=='w'?'w':'k');if(pc.type=='k'&&pc.color==game.turn()&&game.in_check())d.classList.add('chk')}
   if(sq==sel)d.classList.add('sel');if(targets.includes(sq))d.classList.add('dot');if(last&&last.includes(sq))d.classList.add('last');
   d.onclick=()=>tap(sq);B.appendChild(d)}
- let s;if(game.in_checkmate())s=game.turn()=='b'?'Checkmate, you win! 🎉':'Checkmate, Chess wins.';else if(game.game_over())s='Draw!';else if(!ready)s='Loading the bot…';else if(thinking||game.turn()=='b')s='Chess is thinking…';else s=game.in_check()?'Check! Your move.':'Your move.';
+ let s;if(game.in_checkmate())s=game.turn()!=me?'Checkmate, you win! 🎉':'Checkmate, Chess wins.';else if(game.game_over())s='Draw!';else if(!ready)s='Loading the bot…';else if(thinking||game.turn()!=me)s='Chess is thinking…';else s=game.in_check()?'Check! Your move.':'Your move.';
  document.getElementById('st').textContent=s;
  let mv='';game.history().forEach((m,i)=>{if(i%2==0)mv+=(i/2+1)+'. ';mv+=m+' '});document.getElementById('mv').textContent=mv;
  const L=document.getElementById('log');L.innerHTML=chat.map(c=>'<div><b>Chess:</b> '+c+'</div>').join('');L.scrollTop=1e6}
-function tap(sq){if(thinking||!ready||game.turn()!='w'||game.game_over())return;
+function tap(sq){if(thinking||!ready||game.turn()!=me||game.game_over())return;
  if(sel){const m=game.move({from:sel,to:sq,promotion:'q'});if(m){sel=null;last=[m.from,m.to];save();draw();if(!game.game_over())setTimeout(think,150);else{react(m);draw()}return}}
- const pc=game.get(sq);sel=(pc&&pc.color=='w'&&sel!=sq)?sq:null;draw()}
-document.getElementById('new').onclick=()=>{if(thinking||!confirm('Start a new game?'))return;game=new Chess();last=null;sel=null;say("New game! You're White again.");save();draw()};
-document.getElementById('undo').onclick=()=>{if(thinking)return;game.undo();if(game.turn()=='b')game.undo();last=null;sel=null;say("Okay, take it back. Try again!");save();draw()};
+ const pc=game.get(sq);sel=(pc&&pc.color==me&&sel!=sq)?sq:null;draw()}
+function newGame(c){if(thinking||!confirm('Start a new game as '+(c=='w'?'White':'Black')+'?'))return;game=new Chess();last=null;sel=null;me=c;say(c=='w'?"New game! You're White, you go first.":"New game! You're Black, so I go first.");save();draw();if(me=='b')setTimeout(think,300)}
+document.getElementById('new').onclick=()=>newGame('w');document.getElementById('newb').onclick=()=>newGame('b');
+document.getElementById('undo').onclick=()=>{if(thinking)return;game.undo();if(game.turn()!=me)game.undo();last=null;sel=null;say("Okay, take it back. Try again!");save();draw();if(game.turn()!=me&&!game.game_over())setTimeout(think,300)};
 draw();
 </script></body></html>
